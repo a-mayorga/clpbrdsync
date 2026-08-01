@@ -1,28 +1,28 @@
 {
-	"name": "clpbrdsync",
-	"version": "0.0.0",
-	"private": true,
-	"description": "Cross-platform clipboard synchronization for desktop and Android.",
-	"license": "UNLICENSED",
-	"packageManager": "pnpm@11.18.0",
-	"engines": {
-		"node": ">=22"
-	},
-	"scripts": {
-		"build": "turbo run build",
-		"dev": "turbo run dev",
-		"check": "turbo run check",
-		"lint": "turbo run lint",
-		"test": "turbo run test",
-		"typecheck": "turbo run typecheck",
-		"clean": "turbo run clean && node scripts/clean.mjs",
-		"format": "biome format --write .",
-		"format:check": "biome format .",
-		"biome:check": "biome check .",
-		"biome:fix": "biome check --write ."
-	},
-	"devDependencies": {
-		"@biomejs/biome": "2.5.6",
-		"turbo": "^2.10.7"
-	}
+  "name": "clpbrdsync",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cross-platform clipboard synchronization for desktop and Android.",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "check": "turbo run check",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && node scripts/clean.mjs",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "biome:check": "biome check .",
+    "biome:fix": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.6",
+    "turbo": "^2.10.7"
+  }
 }

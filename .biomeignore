@@ -1,0 +1,7 @@
+apps/android
+node_modules
+dist
+build
+coverage
+out
+.turbo
