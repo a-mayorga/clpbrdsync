@@ -48,6 +48,11 @@ function App(): React.JSX.Element {
             <dt>Version</dt>
             <dd>{runtimeInfo.appVersion}</dd>
           </div>
+
+          <div>
+            <dt>Process started</dt>
+            <dd>{runtimeInfo.processStartedAt}</dd>
+          </div>
         </dl>
       )}
     </main>

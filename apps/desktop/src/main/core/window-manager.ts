@@ -1,12 +1,24 @@
 import { join } from "node:path";
-import { BrowserWindow, shell } from "electron";
+import { BrowserWindow, type Event, shell } from "electron";
+
+type WindowManagerOptions = {
+  onLoad(window: BrowserWindow): Promise<void>;
+};
 
 export class WindowManager {
   private mainWindow: BrowserWindow | null = null;
 
-  createMainWindow(): BrowserWindow {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      return this.mainWindow;
+  private isQuitting = false;
+
+  constructor(private readonly options: WindowManagerOptions) {}
+
+  async createMainWindow(): Promise<BrowserWindow> {
+    const existingWindow = this.getMainWindow();
+
+    if (existingWindow) {
+      this.showMainWindow();
+
+      return existingWindow;
     }
 
     const window = new BrowserWindow({
@@ -28,6 +40,10 @@ export class WindowManager {
       window.show();
     });
 
+    window.on("close", (event) => {
+      this.handleWindowClose(event);
+    });
+
     window.on("closed", () => {
       this.mainWindow = null;
     });
@@ -42,6 +58,8 @@ export class WindowManager {
 
     this.mainWindow = window;
 
+    await this.options.onLoad(window);
+
     return window;
   }
 
@@ -53,7 +71,7 @@ export class WindowManager {
     return this.mainWindow;
   }
 
-  focusMainWindow(): void {
+  showMainWindow(): void {
     const window = this.getMainWindow();
 
     if (!window) {
@@ -64,7 +82,37 @@ export class WindowManager {
       window.restore();
     }
 
+    window.show();
     window.focus();
+  }
+
+  hideMainWindow(): void {
+    const window = this.getMainWindow();
+
+    if (!window) {
+      return;
+    }
+
+    window.hide();
+  }
+
+  toggleMainWindow(): void {
+    const window = this.getMainWindow();
+
+    if (!window) {
+      return;
+    }
+
+    if (window.isVisible()) {
+      this.hideMainWindow();
+      return;
+    }
+
+    this.showMainWindow();
+  }
+
+  prepareForQuit(): void {
+    this.isQuitting = true;
   }
 
   destroyMainWindow(): void {
@@ -74,7 +122,17 @@ export class WindowManager {
       return;
     }
 
+    this.isQuitting = true;
     window.destroy();
     this.mainWindow = null;
+  }
+
+  private handleWindowClose(event: Event): void {
+    if (this.isQuitting) {
+      return;
+    }
+
+    event.preventDefault();
+    this.hideMainWindow();
   }
 }
