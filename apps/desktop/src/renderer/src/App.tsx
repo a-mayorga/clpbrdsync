@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 
 import type { DesktopRuntimeInfo } from "../../shared/desktop-api";
+import { ClipboardHistoryList } from "./features/clipboard-history/clipboard-history-list";
+import { useClipboardHistory } from "./features/clipboard-history/use-clipboard-history";
 
 function App(): React.JSX.Element {
   const [runtimeInfo, setRuntimeInfo] = useState<DesktopRuntimeInfo | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [runtimeErrorMessage, setRuntimeErrorMessage] = useState<string | null>(null);
+
+  const {
+    items,
+    isLoading: isHistoryLoading,
+    errorMessage: historyErrorMessage,
+  } = useClipboardHistory();
 
   useEffect(() => {
     let isActive = true;
@@ -18,7 +26,7 @@ function App(): React.JSX.Element {
         }
       } catch {
         if (isActive) {
-          setErrorMessage("Could not load desktop runtime information.");
+          setRuntimeErrorMessage("Could not load desktop runtime information.");
         }
       }
     }
@@ -32,29 +40,47 @@ function App(): React.JSX.Element {
 
   return (
     <main>
-      <h1>ClpbrdSync</h1>
-      <p>Cross-platform clipboard synchronization.</p>
+      <header>
+        <h1>ClpbrdSync</h1>
+        <p>Cross-platform clipboard synchronization.</p>
+      </header>
 
-      {errorMessage && <p role="alert">{errorMessage}</p>}
+      <section aria-labelledby="runtime-heading">
+        <h2 id="runtime-heading">Runtime</h2>
 
-      {runtimeInfo && (
-        <dl>
-          <div>
-            <dt>Platform</dt>
-            <dd>{runtimeInfo.platform}</dd>
-          </div>
+        {runtimeErrorMessage && <p role="alert">{runtimeErrorMessage}</p>}
 
-          <div>
-            <dt>Version</dt>
-            <dd>{runtimeInfo.appVersion}</dd>
-          </div>
+        {runtimeInfo && (
+          <dl>
+            <div>
+              <dt>Platform</dt>
+              <dd>{runtimeInfo.platform}</dd>
+            </div>
 
-          <div>
-            <dt>Process started</dt>
-            <dd>{runtimeInfo.processStartedAt}</dd>
-          </div>
-        </dl>
-      )}
+            <div>
+              <dt>Version</dt>
+              <dd>{runtimeInfo.appVersion}</dd>
+            </div>
+
+            <div>
+              <dt>Process started</dt>
+              <dd>{runtimeInfo.processStartedAt}</dd>
+            </div>
+          </dl>
+        )}
+      </section>
+
+      <section aria-labelledby="history-heading">
+        <h2 id="history-heading">Clipboard history</h2>
+
+        {historyErrorMessage && <p role="alert">{historyErrorMessage}</p>}
+
+        {isHistoryLoading ? (
+          <p>Loading clipboard history…</p>
+        ) : (
+          <ClipboardHistoryList items={items} />
+        )}
+      </section>
     </main>
   );
 }

@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
+import type { ClipboardTextItem } from "../../../../shared/clipboard/clipboard-text-item";
 import type { EventBus } from "../../../core/event-bus";
 import { CLIPBOARD_EVENTS } from "../domain/clipboard-events";
-import type { ClipboardTextItem } from "../domain/clipboard-text-item";
 import { createContentHash } from "../domain/create-content-hash";
 import type { ClipboardReader } from "./clipboard-reader";
 
@@ -76,6 +77,7 @@ export class ClipboardMonitor {
     this.lastContentHash = contentHash;
 
     const item: ClipboardTextItem = {
+      id: randomUUID(),
       content,
       contentHash,
       capturedAt: new Date().toISOString(),

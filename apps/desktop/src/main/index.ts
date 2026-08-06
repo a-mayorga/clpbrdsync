@@ -1,15 +1,16 @@
 import { join } from "node:path";
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 import { app, powerMonitor } from "electron";
-
+import type { ClipboardTextItem } from "../shared/clipboard/clipboard-text-item";
 import { ApplicationLifecycle } from "./core/application-lifecycle";
 import { EventBus } from "./core/event-bus";
 import { TrayManager } from "./core/tray-manager";
 import { WindowManager } from "./core/window-manager";
+import { ClipboardHistoryService } from "./features/clipboard/application/clipboard-history-service";
 import { ClipboardMonitor } from "./features/clipboard/application/clipboard-monitor";
 import { CLIPBOARD_EVENTS } from "./features/clipboard/domain/clipboard-events";
-import type { ClipboardTextItem } from "./features/clipboard/domain/clipboard-text-item";
 import { ElectronClipboardReader } from "./features/clipboard/infrastructure/electron-clipboard-reader";
+import { ClipboardHistoryIpc } from "./features/clipboard/presentation/clipboard-history-ipc";
 import { registerRuntimeIpc, unregisterRuntimeIpc } from "./features/runtime/runtime-ipc";
 
 const windowManager = new WindowManager({
@@ -25,6 +26,10 @@ const windowManager = new WindowManager({
 
 const eventBus = new EventBus();
 
+const clipboardHistoryService = new ClipboardHistoryService({
+  maxItems: 100,
+});
+
 const clipboardMonitor = new ClipboardMonitor({
   clipboardReader: new ElectronClipboardReader(),
   eventBus,
@@ -34,15 +39,15 @@ const clipboardMonitor = new ClipboardMonitor({
   },
 });
 
-const unsubscribeClipboardLog = eventBus.on<ClipboardTextItem>(
+const clipboardHistoryIpc = new ClipboardHistoryIpc({
+  historyService: clipboardHistoryService,
+  getMainWindow: () => windowManager.getMainWindow(),
+});
+
+const unsubscribeClipboardHistory = eventBus.on<ClipboardTextItem>(
   CLIPBOARD_EVENTS.textChanged,
   (item) => {
-    console.info("Clipboard text changed:", {
-      preview: item.content.slice(0, 80),
-      contentLength: item.content.length,
-      contentHash: item.contentHash,
-      capturedAt: item.capturedAt,
-    });
+    clipboardHistoryService.add(item);
   },
 );
 
@@ -98,6 +103,7 @@ if (!hasSingleInstanceLock) {
   });
 
   app.whenReady().then(async () => {
+    clipboardHistoryIpc.register();
     clipboardMonitor.start();
     electronApp.setAppUserModelId("com.clpbrdsync.desktop");
 
@@ -132,7 +138,9 @@ app.on("window-all-closed", () => {
 
 app.on("will-quit", () => {
   clipboardMonitor.stop();
-  unsubscribeClipboardLog();
+  clipboardHistoryIpc.unregister();
+  unsubscribeClipboardHistory();
+  clipboardHistoryService.dispose();
   eventBus.removeAllListeners();
   unregisterRuntimeIpc();
 });

@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import type { ClipboardTextItem } from "../../../../shared/clipboard/clipboard-text-item";
 import { EventBus } from "../../../core/event-bus";
 import { CLIPBOARD_EVENTS } from "../domain/clipboard-events";
-import type { ClipboardTextItem } from "../domain/clipboard-text-item";
 import { ClipboardMonitor } from "./clipboard-monitor";
 import type { ClipboardReader } from "./clipboard-reader";
 
