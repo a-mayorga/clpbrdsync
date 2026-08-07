@@ -1,6 +1,6 @@
 import { clipboard } from "electron";
 
-import type { ClipboardReader } from "../application/clipboard-reader";
+import type { ClipboardReader } from "../features/clipboard/application/clipboard-reader";
 
 export class ElectronClipboardReader implements ClipboardReader {
   readText(): string {

@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 import { app, powerMonitor } from "electron";
+
 import type { ClipboardTextItem } from "../shared/clipboard/clipboard-text-item";
 import { ApplicationLifecycle } from "./core/application-lifecycle";
 import { EventBus } from "./core/event-bus";
@@ -9,9 +10,11 @@ import { WindowManager } from "./core/window-manager";
 import { ClipboardHistoryService } from "./features/clipboard/application/clipboard-history-service";
 import { ClipboardMonitor } from "./features/clipboard/application/clipboard-monitor";
 import { CLIPBOARD_EVENTS } from "./features/clipboard/domain/clipboard-events";
-import { ElectronClipboardReader } from "./features/clipboard/infrastructure/electron-clipboard-reader";
 import { ClipboardHistoryIpc } from "./features/clipboard/presentation/clipboard-history-ipc";
 import { registerRuntimeIpc, unregisterRuntimeIpc } from "./features/runtime/runtime-ipc";
+import { DatabaseManager } from "./infrastructure/database/database-manager";
+import { ElectronClipboardReader } from "./infrastructure/electron-clipboard-reader";
+import { SqliteClipboardHistoryRepository } from "./infrastructure/sqlite-clipboard-history-repository";
 
 const windowManager = new WindowManager({
   onLoad: async (window) => {
@@ -26,9 +29,7 @@ const windowManager = new WindowManager({
 
 const eventBus = new EventBus();
 
-const clipboardHistoryService = new ClipboardHistoryService({
-  maxItems: 100,
-});
+const databaseManager = new DatabaseManager();
 
 const clipboardMonitor = new ClipboardMonitor({
   clipboardReader: new ElectronClipboardReader(),
@@ -39,18 +40,9 @@ const clipboardMonitor = new ClipboardMonitor({
   },
 });
 
-const clipboardHistoryIpc = new ClipboardHistoryIpc({
-  historyService: clipboardHistoryService,
-  getMainWindow: () => windowManager.getMainWindow(),
-});
-
-const unsubscribeClipboardHistory = eventBus.on<ClipboardTextItem>(
-  CLIPBOARD_EVENTS.textChanged,
-  (item) => {
-    clipboardHistoryService.add(item);
-  },
-);
-
+let clipboardHistoryService: ClipboardHistoryService | null = null;
+let clipboardHistoryIpc: ClipboardHistoryIpc | null = null;
+let unsubscribeClipboardHistory: (() => void) | null = null;
 let applicationLifecycle: ApplicationLifecycle | null = null;
 
 const trayManager = new TrayManager({
@@ -103,7 +95,30 @@ if (!hasSingleInstanceLock) {
   });
 
   app.whenReady().then(async () => {
+    const database = databaseManager.initialize();
+    const historyRepository = new SqliteClipboardHistoryRepository(database);
+
+    clipboardHistoryService = new ClipboardHistoryService({
+      maxItems: 100,
+      repository: historyRepository,
+    });
+
+    clipboardHistoryService.initialize();
+
+    clipboardHistoryIpc = new ClipboardHistoryIpc({
+      historyService: clipboardHistoryService,
+      getMainWindow: () => windowManager.getMainWindow(),
+    });
+
     clipboardHistoryIpc.register();
+
+    unsubscribeClipboardHistory = eventBus.on<ClipboardTextItem>(
+      CLIPBOARD_EVENTS.textChanged,
+      (item) => {
+        clipboardHistoryService?.add(item);
+      },
+    );
+
     clipboardMonitor.start();
     electronApp.setAppUserModelId("com.clpbrdsync.desktop");
 
@@ -138,11 +153,20 @@ app.on("window-all-closed", () => {
 
 app.on("will-quit", () => {
   clipboardMonitor.stop();
-  clipboardHistoryIpc.unregister();
-  unsubscribeClipboardHistory();
-  clipboardHistoryService.dispose();
+
+  clipboardHistoryIpc?.unregister();
+  clipboardHistoryIpc = null;
+
+  unsubscribeClipboardHistory?.();
+  unsubscribeClipboardHistory = null;
+
+  clipboardHistoryService?.dispose();
+  clipboardHistoryService = null;
+
   eventBus.removeAllListeners();
   unregisterRuntimeIpc();
+
+  databaseManager.close();
 });
 
 powerMonitor.on("suspend", () => {

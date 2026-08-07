@@ -1,7 +1,39 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ClipboardTextItem } from "../../../../shared/clipboard/clipboard-text-item";
+import type { ClipboardHistoryRepository } from "./clipboard-history-repository";
 import { ClipboardHistoryService } from "./clipboard-history-service";
+
+class InMemoryClipboardHistoryRepository implements ClipboardHistoryRepository {
+  private items: ClipboardTextItem[] = [];
+
+  initialize(): void {}
+
+  findRecent(limit: number): ClipboardTextItem[] {
+    return this.items.slice(0, limit).map((item) => ({ ...item }));
+  }
+
+  insert(item: ClipboardTextItem): void {
+    this.items.unshift({ ...item });
+  }
+
+  prune(limit: number): void {
+    this.items.length = Math.min(this.items.length, limit);
+  }
+
+  clear(): void {
+    this.items.length = 0;
+  }
+
+  close(): void {}
+}
+
+function createService(maxItems = 100): ClipboardHistoryService {
+  return new ClipboardHistoryService({
+    maxItems,
+    repository: new InMemoryClipboardHistoryRepository(),
+  });
+}
 
 function createItem(id: string, content: string): ClipboardTextItem {
   return {
@@ -14,7 +46,8 @@ function createItem(id: string, content: string): ClipboardTextItem {
 
 describe("ClipboardHistoryService", () => {
   it("stores newest items first", () => {
-    const service = new ClipboardHistoryService();
+    const service = createService();
+    service.initialize();
 
     service.add(createItem("1", "First"));
     service.add(createItem("2", "Second"));
@@ -34,9 +67,8 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("enforces its maximum size", () => {
-    const service = new ClipboardHistoryService({
-      maxItems: 2,
-    });
+    const service = createService(2);
+    service.initialize();
 
     service.add(createItem("1", "First"));
     service.add(createItem("2", "Second"));
@@ -46,7 +78,9 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("notifies subscribers after an item is added", () => {
-    const service = new ClipboardHistoryService();
+    const service = createService();
+    service.initialize();
+
     const handler = vi.fn();
 
     service.subscribe(handler);
@@ -63,7 +97,9 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("stops notifying a removed subscriber", () => {
-    const service = new ClipboardHistoryService();
+    const service = createService();
+    service.initialize();
+
     const handler = vi.fn();
 
     const unsubscribe = service.subscribe(handler);
@@ -75,7 +111,9 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("clears the history and notifies subscribers", () => {
-    const service = new ClipboardHistoryService();
+    const service = createService();
+    service.initialize();
+
     const handler = vi.fn();
 
     service.add(createItem("1", "First"));
@@ -88,7 +126,9 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("does not notify when clearing an empty history", () => {
-    const service = new ClipboardHistoryService();
+    const service = createService();
+    service.initialize();
+
     const handler = vi.fn();
 
     service.subscribe(handler);
@@ -98,11 +138,24 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("rejects an invalid maximum size", () => {
-    expect(
-      () =>
-        new ClipboardHistoryService({
-          maxItems: 0,
-        }),
-    ).toThrow("Clipboard history maxItems must be a positive integer.");
+    expect(() => createService(0)).toThrow(
+      "Clipboard history maxItems must be a positive integer.",
+    );
+  });
+
+  it("restores persisted history during initialization", () => {
+    const repository = new InMemoryClipboardHistoryRepository();
+
+    repository.insert(createItem("1", "First"));
+    repository.insert(createItem("2", "Second"));
+
+    const service = new ClipboardHistoryService({
+      maxItems: 100,
+      repository,
+    });
+
+    service.initialize();
+
+    expect(service.getItems().map((item) => item.id)).toEqual(["2", "1"]);
   });
 });

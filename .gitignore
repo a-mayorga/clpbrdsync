@@ -43,3 +43,9 @@ captures/
 # Temporary files
 *.tmp
 *.temp
+
+# Local databases
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
