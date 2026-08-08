@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { ClipboardHistoryItem } from "../../../../shared/clipboard/clipboard-history-item";
 
@@ -50,23 +50,23 @@ export function useClipboardHistory(): ClipboardHistoryState {
     };
   }, []);
 
-  async function copyItem(itemId: string): Promise<void> {
+  const copyItem = useCallback(async (itemId: string): Promise<void> => {
     try {
       setErrorMessage(null);
       await window.clpbrdSync.clipboardHistory.copyItem(itemId);
     } catch {
       setErrorMessage("Could not copy the selected history item.");
     }
-  }
+  }, []);
 
-  async function clearHistory(): Promise<void> {
+  const clearHistory = useCallback(async (): Promise<void> => {
     try {
       setErrorMessage(null);
       await window.clpbrdSync.clipboardHistory.clear();
     } catch {
       setErrorMessage("Could not clear clipboard history.");
     }
-  }
+  }, []);
 
   return {
     items,

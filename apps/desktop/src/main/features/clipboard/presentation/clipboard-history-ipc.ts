@@ -1,4 +1,4 @@
-import { type BrowserWindow, ipcMain } from "electron";
+import { ipcMain } from "electron";
 
 import type { ClipboardHistoryItem } from "../../../../shared/clipboard/clipboard-history-item";
 import { IPC_CHANNELS } from "../../../../shared/ipc-channels";
@@ -6,7 +6,7 @@ import type { ClipboardHistoryService } from "../application/clipboard-history-s
 
 type ClipboardHistoryIpcDependencies = {
   historyService: ClipboardHistoryService;
-  getMainWindow(): BrowserWindow | null;
+  broadcast(channel: string, ...args: unknown[]): void;
 };
 
 export class ClipboardHistoryIpc {
@@ -45,12 +45,6 @@ export class ClipboardHistoryIpc {
   }
 
   private sendHistoryChanged(items: readonly ClipboardHistoryItem[]): void {
-    const window = this.dependencies.getMainWindow();
-
-    if (!window || window.isDestroyed()) {
-      return;
-    }
-
-    window.webContents.send(IPC_CHANNELS.clipboardHistory.changed, items);
+    this.dependencies.broadcast(IPC_CHANNELS.clipboardHistory.changed, items);
   }
 }

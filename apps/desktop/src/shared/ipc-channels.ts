@@ -8,4 +8,7 @@ export const IPC_CHANNELS = {
     clear: "clipboard-history:clear",
     changed: "clipboard-history:changed",
   },
+  quickPaste: {
+    hide: "quick-paste:hide",
+  },
 } as const;

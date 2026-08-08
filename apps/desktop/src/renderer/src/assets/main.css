@@ -1,4 +1,5 @@
 @import "./base.css";
+@import "./quick-paste.css";
 
 body {
   display: flex;

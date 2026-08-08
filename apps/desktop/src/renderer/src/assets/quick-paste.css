@@ -1,0 +1,19 @@
+.quick-paste {
+  padding: 16px;
+}
+
+.quick-paste ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quick-paste button {
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+}
+
+.quick-paste button[aria-current="true"] {
+  outline: 2px solid currentColor;
+}

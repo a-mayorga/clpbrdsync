@@ -3,6 +3,7 @@ import { BrowserWindow, type Event, shell } from "electron";
 
 type WindowManagerOptions = {
   onLoad(window: BrowserWindow): Promise<void>;
+  onWindowCreated?(window: BrowserWindow): void;
 };
 
 export class WindowManager {
@@ -35,6 +36,8 @@ export class WindowManager {
         sandbox: true,
       },
     });
+
+    this.options.onWindowCreated?.(window);
 
     window.once("ready-to-show", () => {
       window.show();

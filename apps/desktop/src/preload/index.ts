@@ -30,6 +30,10 @@ const desktopApi: DesktopApi = {
       };
     },
   },
+
+  quickPaste: {
+    hide: () => ipcRenderer.invoke(IPC_CHANNELS.quickPaste.hide),
+  },
 };
 
 if (!process.contextIsolated) {

@@ -20,4 +20,8 @@ export interface DesktopApi {
 
     onChanged(handler: (items: readonly ClipboardHistoryItem[]) => void): () => void;
   };
+
+  quickPaste: {
+    hide(): Promise<void>;
+  };
 }

@@ -5,6 +5,8 @@ import { app, powerMonitor } from "electron";
 import type { ClipboardTextItem } from "../shared/clipboard/clipboard-text-item";
 import { ApplicationLifecycle } from "./core/application-lifecycle";
 import { EventBus } from "./core/event-bus";
+import { GlobalShortcutManager } from "./core/global-shortcut-manager";
+import { RendererRegistry } from "./core/renderer-registry";
 import { TrayManager } from "./core/tray-manager";
 import { WindowManager } from "./core/window-manager";
 import { ClipboardHistoryService } from "./features/clipboard/application/clipboard-history-service";
@@ -13,10 +15,14 @@ import { ClipboardWriteTracker } from "./features/clipboard/application/clipboar
 import { CLIPBOARD_EVENTS } from "./features/clipboard/domain/clipboard-events";
 import { ElectronClipboardWriter } from "./features/clipboard/infrastructure/electron-clipboard-writer";
 import { ClipboardHistoryIpc } from "./features/clipboard/presentation/clipboard-history-ipc";
+import { QuickPasteIpc } from "./features/quick-paste/quick-paste-ipc";
+import { QuickPasteWindowManager } from "./features/quick-paste/quick-paste-window-manager";
 import { registerRuntimeIpc, unregisterRuntimeIpc } from "./features/runtime/runtime-ipc";
 import { DatabaseManager } from "./infrastructure/database/database-manager";
 import { ElectronClipboardReader } from "./infrastructure/electron-clipboard-reader";
 import { SqliteClipboardHistoryRepository } from "./infrastructure/sqlite-clipboard-history-repository";
+
+const rendererRegistry = new RendererRegistry();
 
 const windowManager = new WindowManager({
   onLoad: async (window) => {
@@ -26,6 +32,10 @@ const windowManager = new WindowManager({
     }
 
     await window.loadFile(join(__dirname, "../renderer/index.html"));
+  },
+
+  onWindowCreated: (window) => {
+    rendererRegistry.add(window);
   },
 });
 
@@ -80,6 +90,22 @@ applicationLifecycle = new ApplicationLifecycle({
   windowManager,
 });
 
+const quickPasteWindowManager = new QuickPasteWindowManager({
+  onWindowCreated: (window) => {
+    rendererRegistry.add(window);
+  },
+});
+
+const globalShortcutManager = new GlobalShortcutManager({
+  onQuickPasteRequested: () => {
+    void quickPasteWindowManager.show();
+  },
+});
+
+const quickPasteIpc = new QuickPasteIpc({
+  windowManager: quickPasteWindowManager,
+});
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) {
@@ -97,6 +123,8 @@ if (!hasSingleInstanceLock) {
   });
 
   app.whenReady().then(async () => {
+    quickPasteIpc.register();
+    globalShortcutManager.register();
     const database = databaseManager.initialize();
     const historyRepository = new SqliteClipboardHistoryRepository(database);
 
@@ -111,7 +139,9 @@ if (!hasSingleInstanceLock) {
 
     clipboardHistoryIpc = new ClipboardHistoryIpc({
       historyService: clipboardHistoryService,
-      getMainWindow: () => windowManager.getMainWindow(),
+      broadcast: (channel, ...args) => {
+        rendererRegistry.broadcast(channel, ...args);
+      },
     });
 
     clipboardHistoryIpc.register();
@@ -156,6 +186,10 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  globalShortcutManager.unregister();
+  quickPasteIpc.unregister();
+  quickPasteWindowManager.dispose();
+
   clipboardMonitor.stop();
 
   clipboardWriteTracker.clear();
