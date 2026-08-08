@@ -1,26 +1,31 @@
 import type { ClipboardHistoryItem } from "../../../../shared/clipboard/clipboard-history-item";
 import type { ClipboardTextItem } from "../../../../shared/clipboard/clipboard-text-item";
 import type { ClipboardHistoryRepository } from "./clipboard-history-repository";
+import type { ClipboardWriteTracker } from "./clipboard-write-tracker";
+import type { ClipboardWriter } from "./clipboard-writer";
 
 type ClipboardHistoryServiceOptions = {
   maxItems?: number;
   repository: ClipboardHistoryRepository;
+  clipboardWriter: ClipboardWriter;
+  writeTracker: ClipboardWriteTracker;
 };
 
 type HistoryChangedHandler = (items: readonly ClipboardHistoryItem[]) => void;
 
 export class ClipboardHistoryService {
   private readonly maxItems: number;
-
   private readonly items: ClipboardTextItem[] = [];
-
   private readonly changeHandlers = new Set<HistoryChangedHandler>();
-
   private readonly repository: ClipboardHistoryRepository;
+  private readonly clipboardWriter: ClipboardWriter;
+  private readonly writeTracker: ClipboardWriteTracker;
 
   constructor(options: ClipboardHistoryServiceOptions) {
     this.maxItems = options.maxItems ?? 100;
     this.repository = options.repository;
+    this.clipboardWriter = options.clipboardWriter;
+    this.writeTracker = options.writeTracker;
 
     if (!Number.isInteger(this.maxItems) || this.maxItems <= 0) {
       throw new Error("Clipboard history maxItems must be a positive integer.");
@@ -46,6 +51,24 @@ export class ClipboardHistoryService {
 
     this.repository.prune(this.maxItems);
     this.notifyChange();
+  }
+
+  copyItem(itemId: string): void {
+    const item =
+      this.items.find((candidate) => candidate.id === itemId) ?? this.repository.findById(itemId);
+
+    if (!item) {
+      throw new Error(`Clipboard history item not found: ${itemId}`);
+    }
+
+    this.writeTracker.markExpectedWrite(item.contentHash);
+
+    try {
+      this.clipboardWriter.writeText(item.content);
+    } catch (error) {
+      this.writeTracker.clear();
+      throw error;
+    }
   }
 
   getItems(): readonly ClipboardHistoryItem[] {

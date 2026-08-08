@@ -12,6 +12,8 @@ function App(): React.JSX.Element {
     items,
     isLoading: isHistoryLoading,
     errorMessage: historyErrorMessage,
+    copyItem,
+    clearHistory,
   } = useClipboardHistory();
 
   useEffect(() => {
@@ -73,12 +75,27 @@ function App(): React.JSX.Element {
       <section aria-labelledby="history-heading">
         <h2 id="history-heading">Clipboard history</h2>
 
+        {items.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const confirmed = window.confirm("Clear all local clipboard history?");
+
+              if (confirmed) {
+                void clearHistory();
+              }
+            }}
+          >
+            Clear history
+          </button>
+        )}
+
         {historyErrorMessage && <p role="alert">{historyErrorMessage}</p>}
 
         {isHistoryLoading ? (
           <p>Loading clipboard history…</p>
         ) : (
-          <ClipboardHistoryList items={items} />
+          <ClipboardHistoryList items={items} onCopy={copyItem} />
         )}
       </section>
     </main>

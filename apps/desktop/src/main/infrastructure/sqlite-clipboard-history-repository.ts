@@ -12,49 +12,58 @@ type ClipboardHistoryRow = {
 
 export class SqliteClipboardHistoryRepository implements ClipboardHistoryRepository {
   private insertStatement: StatementSync | null = null;
-
   private findRecentStatement: StatementSync | null = null;
-
   private deleteOverflowStatement: StatementSync | null = null;
-
   private clearStatement: StatementSync | null = null;
+  private findByIdStatement: StatementSync | null = null;
 
   constructor(private readonly database: DatabaseSync) {}
 
   initialize(): void {
     this.insertStatement = this.database.prepare(`
-      INSERT INTO clipboard_history (
-        id,
-        content,
-        content_hash,
-        captured_at
-      )
-      VALUES (?, ?, ?, ?)
+		INSERT INTO clipboard_history (
+			id,
+			content,
+			content_hash,
+			captured_at
+		)
+		VALUES (?, ?, ?, ?)
     `);
 
     this.findRecentStatement = this.database.prepare(`
-      SELECT
-        id,
-        content,
-        content_hash,
-        captured_at
-      FROM clipboard_history
-      ORDER BY captured_at DESC, rowid DESC
-      LIMIT ?
+		SELECT
+			id,
+			content,
+			content_hash,
+			captured_at
+		FROM clipboard_history
+		ORDER BY captured_at DESC, rowid DESC
+		LIMIT ?
     `);
 
+    this.findByIdStatement = this.database.prepare(`
+		SELECT
+			id,
+			content,
+			content_hash,
+			captured_at
+		FROM clipboard_history
+		WHERE id = ?
+		LIMIT 1
+	`);
+
     this.deleteOverflowStatement = this.database.prepare(`
-      DELETE FROM clipboard_history
-      WHERE id IN (
-        SELECT id
-        FROM clipboard_history
-        ORDER BY captured_at DESC, rowid DESC
-        LIMIT -1 OFFSET ?
-      )
+		DELETE FROM clipboard_history
+		WHERE id IN (
+			SELECT id
+			FROM clipboard_history
+			ORDER BY captured_at DESC, rowid DESC
+			LIMIT -1 OFFSET ?
+		)
     `);
 
     this.clearStatement = this.database.prepare(`
-      DELETE FROM clipboard_history
+      	DELETE FROM clipboard_history
     `);
   }
 
@@ -69,6 +78,23 @@ export class SqliteClipboardHistoryRepository implements ClipboardHistoryReposit
       contentHash: row.content_hash,
       capturedAt: row.captured_at,
     }));
+  }
+
+  findById(id: string): ClipboardTextItem | null {
+    const statement = this.requireStatement(this.findByIdStatement, "findById");
+
+    const row = statement.get(id) as ClipboardHistoryRow | undefined;
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      id: row.id,
+      content: row.content,
+      contentHash: row.content_hash,
+      capturedAt: row.captured_at,
+    };
   }
 
   insert(item: ClipboardTextItem): void {
@@ -92,6 +118,7 @@ export class SqliteClipboardHistoryRepository implements ClipboardHistoryReposit
   close(): void {
     this.insertStatement = null;
     this.findRecentStatement = null;
+    this.findByIdStatement = null;
     this.deleteOverflowStatement = null;
     this.clearStatement = null;
   }

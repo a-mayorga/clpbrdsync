@@ -2,6 +2,7 @@ import type { ClipboardHistoryItem } from "../../../../shared/clipboard/clipboar
 
 type ClipboardHistoryListProps = {
   items: readonly ClipboardHistoryItem[];
+  onCopy(itemId: string): Promise<void>;
 };
 
 function formatCapturedAt(value: string): string {
@@ -21,7 +22,10 @@ function createPreview(content: string): string {
   return `${singleLineContent.slice(0, 117)}...`;
 }
 
-export function ClipboardHistoryList({ items }: ClipboardHistoryListProps): React.JSX.Element {
+export function ClipboardHistoryList({
+  items,
+  onCopy,
+}: ClipboardHistoryListProps): React.JSX.Element {
   if (items.length === 0) {
     return <p>Copy some text to start building your local clipboard history.</p>;
   }
@@ -33,6 +37,14 @@ export function ClipboardHistoryList({ items }: ClipboardHistoryListProps): Reac
           <article>
             <p>{createPreview(item.content)}</p>
             <time dateTime={item.capturedAt}>{formatCapturedAt(item.capturedAt)}</time>
+            <button
+              type="button"
+              onClick={() => {
+                void onCopy(item.id);
+              }}
+            >
+              Copy
+            </button>
           </article>
         </li>
       ))}

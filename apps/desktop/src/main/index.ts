@@ -9,7 +9,9 @@ import { TrayManager } from "./core/tray-manager";
 import { WindowManager } from "./core/window-manager";
 import { ClipboardHistoryService } from "./features/clipboard/application/clipboard-history-service";
 import { ClipboardMonitor } from "./features/clipboard/application/clipboard-monitor";
+import { ClipboardWriteTracker } from "./features/clipboard/application/clipboard-write-tracker";
 import { CLIPBOARD_EVENTS } from "./features/clipboard/domain/clipboard-events";
+import { ElectronClipboardWriter } from "./features/clipboard/infrastructure/electron-clipboard-writer";
 import { ClipboardHistoryIpc } from "./features/clipboard/presentation/clipboard-history-ipc";
 import { registerRuntimeIpc, unregisterRuntimeIpc } from "./features/runtime/runtime-ipc";
 import { DatabaseManager } from "./infrastructure/database/database-manager";
@@ -28,11 +30,11 @@ const windowManager = new WindowManager({
 });
 
 const eventBus = new EventBus();
-
 const databaseManager = new DatabaseManager();
-
+const clipboardWriteTracker = new ClipboardWriteTracker();
 const clipboardMonitor = new ClipboardMonitor({
   clipboardReader: new ElectronClipboardReader(),
+  writeTracker: clipboardWriteTracker,
   eventBus,
   pollingIntervalMs: 500,
   onError: (error) => {
@@ -101,6 +103,8 @@ if (!hasSingleInstanceLock) {
     clipboardHistoryService = new ClipboardHistoryService({
       maxItems: 100,
       repository: historyRepository,
+      clipboardWriter: new ElectronClipboardWriter(),
+      writeTracker: clipboardWriteTracker,
     });
 
     clipboardHistoryService.initialize();
@@ -153,6 +157,8 @@ app.on("window-all-closed", () => {
 
 app.on("will-quit", () => {
   clipboardMonitor.stop();
+
+  clipboardWriteTracker.clear();
 
   clipboardHistoryIpc?.unregister();
   clipboardHistoryIpc = null;

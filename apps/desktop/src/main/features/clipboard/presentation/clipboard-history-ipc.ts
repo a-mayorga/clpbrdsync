@@ -22,10 +22,24 @@ export class ClipboardHistoryIpc {
     this.unsubscribeHistory = this.dependencies.historyService.subscribe((items) => {
       this.sendHistoryChanged(items);
     });
+
+    ipcMain.handle(IPC_CHANNELS.clipboardHistory.copyItem, (_event, itemId: unknown) => {
+      if (typeof itemId !== "string" || itemId.length === 0) {
+        throw new Error("A valid clipboard history item ID is required.");
+      }
+
+      this.dependencies.historyService.copyItem(itemId);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.clipboardHistory.clear, () => {
+      this.dependencies.historyService.clear();
+    });
   }
 
   unregister(): void {
     ipcMain.removeHandler(IPC_CHANNELS.clipboardHistory.getItems);
+    ipcMain.removeHandler(IPC_CHANNELS.clipboardHistory.copyItem);
+    ipcMain.removeHandler(IPC_CHANNELS.clipboardHistory.clear);
     this.unsubscribeHistory?.();
     this.unsubscribeHistory = null;
   }

@@ -6,6 +6,8 @@ type ClipboardHistoryState = {
   items: readonly ClipboardHistoryItem[];
   isLoading: boolean;
   errorMessage: string | null;
+  copyItem(itemId: string): Promise<void>;
+  clearHistory(): Promise<void>;
 };
 
 export function useClipboardHistory(): ClipboardHistoryState {
@@ -48,9 +50,29 @@ export function useClipboardHistory(): ClipboardHistoryState {
     };
   }, []);
 
+  async function copyItem(itemId: string): Promise<void> {
+    try {
+      setErrorMessage(null);
+      await window.clpbrdSync.clipboardHistory.copyItem(itemId);
+    } catch {
+      setErrorMessage("Could not copy the selected history item.");
+    }
+  }
+
+  async function clearHistory(): Promise<void> {
+    try {
+      setErrorMessage(null);
+      await window.clpbrdSync.clipboardHistory.clear();
+    } catch {
+      setErrorMessage("Could not clear clipboard history.");
+    }
+  }
+
   return {
     items,
     isLoading,
     errorMessage,
+    copyItem,
+    clearHistory,
   };
 }

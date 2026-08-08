@@ -14,6 +14,10 @@ export interface DesktopApi {
   clipboardHistory: {
     getItems(): Promise<readonly ClipboardHistoryItem[]>;
 
+    copyItem(itemId: string): Promise<void>;
+
+    clear(): Promise<void>;
+
     onChanged(handler: (items: readonly ClipboardHistoryItem[]) => void): () => void;
   };
 }

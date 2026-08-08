@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { ClipboardTextItem } from "../../../../shared/clipboard/clipboard-text-item";
 import type { ClipboardHistoryRepository } from "./clipboard-history-repository";
 import { ClipboardHistoryService } from "./clipboard-history-service";
+import { ClipboardWriteTracker } from "./clipboard-write-tracker";
+import type { ClipboardWriter } from "./clipboard-writer";
 
 class InMemoryClipboardHistoryRepository implements ClipboardHistoryRepository {
   private items: ClipboardTextItem[] = [];
@@ -11,6 +13,12 @@ class InMemoryClipboardHistoryRepository implements ClipboardHistoryRepository {
 
   findRecent(limit: number): ClipboardTextItem[] {
     return this.items.slice(0, limit).map((item) => ({ ...item }));
+  }
+
+  findById(id: string): ClipboardTextItem | null {
+    const item = this.items.find((candidate) => candidate.id === id);
+
+    return item ? { ...item } : null;
   }
 
   insert(item: ClipboardTextItem): void {
@@ -28,11 +36,35 @@ class InMemoryClipboardHistoryRepository implements ClipboardHistoryRepository {
   close(): void {}
 }
 
-function createService(maxItems = 100): ClipboardHistoryService {
-  return new ClipboardHistoryService({
+class FakeClipboardWriter implements ClipboardWriter {
+  writtenContent: string | null = null;
+
+  writeText(content: string): void {
+    this.writtenContent = content;
+  }
+}
+
+function createService(maxItems = 100): {
+  service: ClipboardHistoryService;
+  clipboardWriter: FakeClipboardWriter;
+  writeTracker: ClipboardWriteTracker;
+} {
+  const repository = new InMemoryClipboardHistoryRepository();
+  const clipboardWriter = new FakeClipboardWriter();
+  const writeTracker = new ClipboardWriteTracker();
+
+  const service = new ClipboardHistoryService({
     maxItems,
-    repository: new InMemoryClipboardHistoryRepository(),
+    repository,
+    clipboardWriter,
+    writeTracker,
   });
+
+  return {
+    service,
+    clipboardWriter,
+    writeTracker,
+  };
 }
 
 function createItem(id: string, content: string): ClipboardTextItem {
@@ -46,7 +78,7 @@ function createItem(id: string, content: string): ClipboardTextItem {
 
 describe("ClipboardHistoryService", () => {
   it("stores newest items first", () => {
-    const service = createService();
+    const { service } = createService();
     service.initialize();
 
     service.add(createItem("1", "First"));
@@ -67,7 +99,7 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("enforces its maximum size", () => {
-    const service = createService(2);
+    const { service } = createService(2);
     service.initialize();
 
     service.add(createItem("1", "First"));
@@ -78,7 +110,7 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("notifies subscribers after an item is added", () => {
-    const service = createService();
+    const { service } = createService();
     service.initialize();
 
     const handler = vi.fn();
@@ -97,7 +129,7 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("stops notifying a removed subscriber", () => {
-    const service = createService();
+    const { service } = createService();
     service.initialize();
 
     const handler = vi.fn();
@@ -111,7 +143,7 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("clears the history and notifies subscribers", () => {
-    const service = createService();
+    const { service } = createService();
     service.initialize();
 
     const handler = vi.fn();
@@ -126,7 +158,7 @@ describe("ClipboardHistoryService", () => {
   });
 
   it("does not notify when clearing an empty history", () => {
-    const service = createService();
+    const { service } = createService();
     service.initialize();
 
     const handler = vi.fn();
@@ -145,6 +177,8 @@ describe("ClipboardHistoryService", () => {
 
   it("restores persisted history during initialization", () => {
     const repository = new InMemoryClipboardHistoryRepository();
+    const clipboardWriter = new FakeClipboardWriter();
+    const writeTracker = new ClipboardWriteTracker();
 
     repository.insert(createItem("1", "First"));
     repository.insert(createItem("2", "Second"));
@@ -152,10 +186,33 @@ describe("ClipboardHistoryService", () => {
     const service = new ClipboardHistoryService({
       maxItems: 100,
       repository,
+      clipboardWriter,
+      writeTracker,
     });
 
     service.initialize();
 
     expect(service.getItems().map((item) => item.id)).toEqual(["2", "1"]);
+  });
+
+  it("copies an existing history item", () => {
+    const { service, clipboardWriter } = createService();
+
+    service.initialize();
+    service.add(createItem("1", "Copy me"));
+
+    service.copyItem("1");
+
+    expect(clipboardWriter.writtenContent).toBe("Copy me");
+  });
+
+  it("throws when copying an unknown item", () => {
+    const { service } = createService();
+
+    service.initialize();
+
+    expect(() => {
+      service.copyItem("missing");
+    }).toThrow("Clipboard history item not found: missing");
   });
 });

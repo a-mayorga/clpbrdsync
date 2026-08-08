@@ -10,6 +10,11 @@ const desktopApi: DesktopApi = {
   clipboardHistory: {
     getItems: () => ipcRenderer.invoke(IPC_CHANNELS.clipboardHistory.getItems),
 
+    copyItem: (itemId: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.clipboardHistory.copyItem, itemId),
+
+    clear: () => ipcRenderer.invoke(IPC_CHANNELS.clipboardHistory.clear),
+
     onChanged: (handler: (items: readonly ClipboardHistoryItem[]) => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,

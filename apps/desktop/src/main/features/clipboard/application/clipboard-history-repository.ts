@@ -3,6 +3,7 @@ import type { ClipboardTextItem } from "../../../../shared/clipboard/clipboard-t
 export interface ClipboardHistoryRepository {
   initialize(): void;
   findRecent(limit: number): ClipboardTextItem[];
+  findById(id: string): ClipboardTextItem | null;
   insert(item: ClipboardTextItem): void;
   prune(limit: number): void;
   clear(): void;

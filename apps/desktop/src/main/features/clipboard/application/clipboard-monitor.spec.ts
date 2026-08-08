@@ -4,6 +4,7 @@ import { EventBus } from "../../../core/event-bus";
 import { CLIPBOARD_EVENTS } from "../domain/clipboard-events";
 import { ClipboardMonitor } from "./clipboard-monitor";
 import type { ClipboardReader } from "./clipboard-reader";
+import { ClipboardWriteTracker } from "./clipboard-write-tracker";
 
 class FakeClipboardReader implements ClipboardReader {
   private content = "";
@@ -21,16 +22,19 @@ describe("ClipboardMonitor", () => {
   let clipboardReader: FakeClipboardReader;
   let eventBus: EventBus;
   let monitor: ClipboardMonitor;
+  let writeTracker: ClipboardWriteTracker;
 
   beforeEach(() => {
     vi.useFakeTimers();
 
     clipboardReader = new FakeClipboardReader();
     eventBus = new EventBus();
+    writeTracker = new ClipboardWriteTracker();
 
     monitor = new ClipboardMonitor({
       clipboardReader,
       eventBus,
+      writeTracker,
       pollingIntervalMs: 500,
     });
   });

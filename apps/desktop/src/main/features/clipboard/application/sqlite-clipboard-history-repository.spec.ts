@@ -78,4 +78,24 @@ describe("SqliteClipboardHistoryRepository", () => {
 
     expect(repository.findRecent(100)).toEqual([]);
   });
+
+  it("finds an item by ID", () => {
+    repository.insert({
+      id: "item-1",
+      content: "Hello",
+      contentHash: "hash-1",
+      capturedAt: "2026-08-06T12:00:00.000Z",
+    });
+
+    expect(repository.findById("item-1")).toEqual({
+      id: "item-1",
+      content: "Hello",
+      contentHash: "hash-1",
+      capturedAt: "2026-08-06T12:00:00.000Z",
+    });
+  });
+
+  it("returns null for an unknown ID", () => {
+    expect(repository.findById("missing")).toBeNull();
+  });
 });

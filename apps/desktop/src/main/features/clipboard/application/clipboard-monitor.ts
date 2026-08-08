@@ -4,10 +4,12 @@ import type { EventBus } from "../../../core/event-bus";
 import { CLIPBOARD_EVENTS } from "../domain/clipboard-events";
 import { createContentHash } from "../domain/create-content-hash";
 import type { ClipboardReader } from "./clipboard-reader";
+import type { ClipboardWriteTracker } from "./clipboard-write-tracker";
 
 type ClipboardMonitorDependencies = {
   clipboardReader: ClipboardReader;
   eventBus: EventBus;
+  writeTracker: ClipboardWriteTracker;
   pollingIntervalMs?: number;
   onError?(error: unknown): void;
 };
@@ -70,7 +72,16 @@ export class ClipboardMonitor {
       return;
     }
 
-    if (!contentHash || contentHash === this.lastContentHash) {
+    if (!contentHash) {
+      return;
+    }
+
+    if (this.dependencies.writeTracker.consumeIfExpected(contentHash)) {
+      this.lastContentHash = contentHash;
+      return;
+    }
+
+    if (contentHash === this.lastContentHash) {
       return;
     }
 
