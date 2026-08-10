@@ -3,7 +3,7 @@ export const IPC_CHANNELS = {
     getInfo: "runtime:get-info",
   },
   clipboardHistory: {
-    getItems: "clipboard-history:get-items",
+    getSnapshot: "clipboard-history:get-snapshot",
     copyItem: "clipboard-history:copy-item",
     clear: "clipboard-history:clear",
     changed: "clipboard-history:changed",

@@ -8,36 +8,38 @@ type QuickPasteWindowManagerOptions = {
 
 export class QuickPasteWindowManager {
   private window: BrowserWindow | null = null;
+  private initializationPromise: Promise<BrowserWindow> | null = null;
 
   constructor(private readonly options: QuickPasteWindowManagerOptions = {}) {}
 
-  async show(): Promise<void> {
+  private async initializeWindow(): Promise<BrowserWindow> {
     const existingWindow = this.getWindow();
 
     if (existingWindow) {
-      this.positionWindow(existingWindow);
-      existingWindow.show();
-      existingWindow.focus();
-      return;
+      return existingWindow;
     }
 
-    const window = this.createWindow();
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
 
-    this.window = window;
+    this.initializationPromise = this.createAndLoadWindow();
 
-    this.options.onWindowCreated?.(window);
+    try {
+      return await this.initializationPromise;
+    } finally {
+      this.initializationPromise = null;
+    }
+  }
 
-    window.on("closed", () => {
-      this.window = null;
-    });
-
-    window.on("blur", () => {
-      window.hide();
-    });
+  async show(): Promise<void> {
+    const window = await this.initializeWindow();
 
     this.positionWindow(window);
 
-    await this.loadWindow(window);
+    if (window.isMinimized()) {
+      window.restore();
+    }
 
     window.show();
     window.focus();
@@ -70,6 +72,40 @@ export class QuickPasteWindowManager {
     }
 
     return this.window;
+  }
+
+  private async createAndLoadWindow(): Promise<BrowserWindow> {
+    const window = this.createWindow();
+
+    this.window = window;
+
+    this.options.onWindowCreated?.(window);
+
+    window.on("closed", () => {
+      if (this.window === window) {
+        this.window = null;
+      }
+    });
+
+    window.on("blur", () => {
+      if (!window.isDestroyed()) {
+        window.hide();
+      }
+    });
+
+    try {
+      await this.loadWindow(window);
+    } catch (error) {
+      window.destroy();
+
+      if (this.window === window) {
+        this.window = null;
+      }
+
+      throw error;
+    }
+
+    return window;
   }
 
   private createWindow(): BrowserWindow {

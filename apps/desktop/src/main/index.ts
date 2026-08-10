@@ -20,6 +20,7 @@ import { QuickPasteWindowManager } from "./features/quick-paste/quick-paste-wind
 import { registerRuntimeIpc, unregisterRuntimeIpc } from "./features/runtime/runtime-ipc";
 import { DatabaseManager } from "./infrastructure/database/database-manager";
 import { ElectronClipboardReader } from "./infrastructure/electron-clipboard-reader";
+import { ElectronGlobalShortcutRegistrar } from "./infrastructure/electron-global-shortcut-registrar";
 import { SqliteClipboardHistoryRepository } from "./infrastructure/sqlite-clipboard-history-repository";
 
 const rendererRegistry = new RendererRegistry();
@@ -97,8 +98,12 @@ const quickPasteWindowManager = new QuickPasteWindowManager({
 });
 
 const globalShortcutManager = new GlobalShortcutManager({
+  registrar: new ElectronGlobalShortcutRegistrar(),
+
   onQuickPasteRequested: () => {
-    void quickPasteWindowManager.show();
+    void quickPasteWindowManager.show().catch((error: unknown) => {
+      console.error("Could not show Quick Paste:", error);
+    });
   },
 });
 

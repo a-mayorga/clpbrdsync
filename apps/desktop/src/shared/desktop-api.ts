@@ -1,4 +1,4 @@
-import type { ClipboardHistoryItem } from "./clipboard/clipboard-history-item";
+import type { ClipboardHistorySnapshot } from "./clipboard/clipboard-history-snapshot";
 
 export type DesktopPlatform = "darwin" | "win32" | "linux";
 
@@ -12,13 +12,13 @@ export interface DesktopApi {
   getRuntimeInfo(): Promise<DesktopRuntimeInfo>;
 
   clipboardHistory: {
-    getItems(): Promise<readonly ClipboardHistoryItem[]>;
+    getSnapshot(): Promise<ClipboardHistorySnapshot>;
 
     copyItem(itemId: string): Promise<void>;
 
     clear(): Promise<void>;
 
-    onChanged(handler: (items: readonly ClipboardHistoryItem[]) => void): () => void;
+    onChanged(handler: (snapshot: ClipboardHistorySnapshot) => void): () => void;
   };
 
   quickPaste: {

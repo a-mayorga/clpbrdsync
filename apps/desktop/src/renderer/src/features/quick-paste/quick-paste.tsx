@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useClipboardHistory } from "../clipboard-history/use-clipboard-history";
+import {
+  normalizeSelectedIndex,
+  selectNextIndex,
+  selectPreviousIndex,
+} from "./quick-paste-selection";
 
 const MAX_VISIBLE_ITEMS = 8;
 
@@ -15,8 +20,8 @@ export function QuickPaste(): React.JSX.Element {
   }
 
   useEffect(() => {
-    setSelectedIndex(0);
-  }, [items]);
+    setSelectedIndex((current) => normalizeSelectedIndex(current, visibleItems.length));
+  }, [visibleItems.length]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
@@ -33,7 +38,7 @@ export function QuickPaste(): React.JSX.Element {
           }
 
           event.preventDefault();
-          setSelectedIndex((current) => Math.min(current + 1, visibleItems.length - 1));
+          setSelectedIndex((current) => selectNextIndex(current, visibleItems.length));
           break;
         }
 
@@ -43,7 +48,7 @@ export function QuickPaste(): React.JSX.Element {
           }
 
           event.preventDefault();
-          setSelectedIndex((current) => Math.max(current - 1, 0));
+          setSelectedIndex((current) => selectPreviousIndex(current));
           break;
         }
 

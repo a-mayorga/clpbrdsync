@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import type { ClipboardHistoryItem } from "../shared/clipboard/clipboard-history-item";
+import type { ClipboardHistorySnapshot } from "../shared/clipboard/clipboard-history-snapshot";
 import type { DesktopApi } from "../shared/desktop-api";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 
@@ -8,19 +8,19 @@ const desktopApi: DesktopApi = {
   getRuntimeInfo: () => ipcRenderer.invoke(IPC_CHANNELS.runtime.getInfo),
 
   clipboardHistory: {
-    getItems: () => ipcRenderer.invoke(IPC_CHANNELS.clipboardHistory.getItems),
+    getSnapshot: () => ipcRenderer.invoke(IPC_CHANNELS.clipboardHistory.getSnapshot),
 
     copyItem: (itemId: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.clipboardHistory.copyItem, itemId),
 
     clear: () => ipcRenderer.invoke(IPC_CHANNELS.clipboardHistory.clear),
 
-    onChanged: (handler: (items: readonly ClipboardHistoryItem[]) => void) => {
+    onChanged: (handler: (snapshot: ClipboardHistorySnapshot) => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,
-        items: readonly ClipboardHistoryItem[],
+        snapshot: ClipboardHistorySnapshot,
       ): void => {
-        handler(items);
+        handler(snapshot);
       };
 
       ipcRenderer.on(IPC_CHANNELS.clipboardHistory.changed, listener);

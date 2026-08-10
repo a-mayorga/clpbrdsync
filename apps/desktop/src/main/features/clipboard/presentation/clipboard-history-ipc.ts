@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 
-import type { ClipboardHistoryItem } from "../../../../shared/clipboard/clipboard-history-item";
+import type { ClipboardHistorySnapshot } from "../../../../shared/clipboard/clipboard-history-snapshot";
 import { IPC_CHANNELS } from "../../../../shared/ipc-channels";
 import type { ClipboardHistoryService } from "../application/clipboard-history-service";
 
@@ -15,8 +15,8 @@ export class ClipboardHistoryIpc {
   constructor(private readonly dependencies: ClipboardHistoryIpcDependencies) {}
 
   register(): void {
-    ipcMain.handle(IPC_CHANNELS.clipboardHistory.getItems, () => {
-      return this.dependencies.historyService.getItems();
+    ipcMain.handle(IPC_CHANNELS.clipboardHistory.getSnapshot, () => {
+      return this.dependencies.historyService.getSnapshot();
     });
 
     this.unsubscribeHistory = this.dependencies.historyService.subscribe((items) => {
@@ -37,14 +37,14 @@ export class ClipboardHistoryIpc {
   }
 
   unregister(): void {
-    ipcMain.removeHandler(IPC_CHANNELS.clipboardHistory.getItems);
+    ipcMain.removeHandler(IPC_CHANNELS.clipboardHistory.getSnapshot);
     ipcMain.removeHandler(IPC_CHANNELS.clipboardHistory.copyItem);
     ipcMain.removeHandler(IPC_CHANNELS.clipboardHistory.clear);
     this.unsubscribeHistory?.();
     this.unsubscribeHistory = null;
   }
 
-  private sendHistoryChanged(items: readonly ClipboardHistoryItem[]): void {
+  private sendHistoryChanged(items: ClipboardHistorySnapshot): void {
     this.dependencies.broadcast(IPC_CHANNELS.clipboardHistory.changed, items);
   }
 }

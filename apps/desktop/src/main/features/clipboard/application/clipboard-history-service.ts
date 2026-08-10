@@ -1,4 +1,5 @@
 import type { ClipboardHistoryItem } from "../../../../shared/clipboard/clipboard-history-item";
+import type { ClipboardHistorySnapshot } from "../../../../shared/clipboard/clipboard-history-snapshot";
 import type { ClipboardTextItem } from "../../../../shared/clipboard/clipboard-text-item";
 import type { ClipboardHistoryRepository } from "./clipboard-history-repository";
 import type { ClipboardWriteTracker } from "./clipboard-write-tracker";
@@ -11,7 +12,7 @@ type ClipboardHistoryServiceOptions = {
   writeTracker: ClipboardWriteTracker;
 };
 
-type HistoryChangedHandler = (items: readonly ClipboardHistoryItem[]) => void;
+type HistoryChangedHandler = (snapshot: ClipboardHistorySnapshot) => void;
 
 export class ClipboardHistoryService {
   private readonly maxItems: number;
@@ -20,6 +21,7 @@ export class ClipboardHistoryService {
   private readonly repository: ClipboardHistoryRepository;
   private readonly clipboardWriter: ClipboardWriter;
   private readonly writeTracker: ClipboardWriteTracker;
+  private revision = 0;
 
   constructor(options: ClipboardHistoryServiceOptions) {
     this.maxItems = options.maxItems ?? 100;
@@ -39,6 +41,7 @@ export class ClipboardHistoryService {
 
     this.items.length = 0;
     this.items.push(...persistedItems);
+    this.revision = 1;
   }
 
   add(item: ClipboardTextItem): void {
@@ -50,6 +53,7 @@ export class ClipboardHistoryService {
     }
 
     this.repository.prune(this.maxItems);
+    this.revision += 1;
     this.notifyChange();
   }
 
@@ -79,6 +83,13 @@ export class ClipboardHistoryService {
     }));
   }
 
+  getSnapshot(): ClipboardHistorySnapshot {
+    return {
+      revision: this.revision,
+      items: this.getItems(),
+    };
+  }
+
   subscribe(handler: HistoryChangedHandler): () => void {
     this.changeHandlers.add(handler);
 
@@ -94,6 +105,7 @@ export class ClipboardHistoryService {
 
     this.repository.clear();
     this.items.length = 0;
+    this.revision += 1;
     this.notifyChange();
   }
 
@@ -104,7 +116,7 @@ export class ClipboardHistoryService {
   }
 
   private notifyChange(): void {
-    const snapshot = this.getItems();
+    const snapshot = this.getSnapshot();
 
     for (const handler of this.changeHandlers) {
       handler(snapshot);

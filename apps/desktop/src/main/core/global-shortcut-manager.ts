@@ -1,6 +1,7 @@
-import { globalShortcut } from "electron";
+import type { GlobalShortcutRegistrar } from "./global-shortcut-registrar";
 
 type GlobalShortcutManagerOptions = {
+  registrar: GlobalShortcutRegistrar;
   onQuickPasteRequested(): void;
 };
 
@@ -16,7 +17,7 @@ export class GlobalShortcutManager {
       return;
     }
 
-    const registered = globalShortcut.register(QUICK_PASTE_SHORTCUT, () => {
+    const registered = this.options.registrar.register(QUICK_PASTE_SHORTCUT, () => {
       this.options.onQuickPasteRequested();
     });
 
@@ -34,7 +35,7 @@ export class GlobalShortcutManager {
       return;
     }
 
-    globalShortcut.unregister(QUICK_PASTE_SHORTCUT);
+    this.options.registrar.unregister(QUICK_PASTE_SHORTCUT);
     this.isRegistered = false;
   }
 }

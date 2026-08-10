@@ -116,16 +116,21 @@ describe("ClipboardHistoryService", () => {
     const handler = vi.fn();
 
     service.subscribe(handler);
+
+    const revisionBeforeAdd = service.getSnapshot().revision;
+
     service.add(createItem("1", "First"));
 
-    expect(handler).toHaveBeenCalledTimes(1);
-    expect(handler).toHaveBeenCalledWith([
-      {
-        id: "1",
-        content: "First",
-        capturedAt: "2026-08-04T12:00:00.000Z",
-      },
-    ]);
+    expect(handler).toHaveBeenCalledWith({
+      revision: revisionBeforeAdd + 1,
+      items: [
+        {
+          id: "1",
+          content: "First",
+          capturedAt: "2026-08-04T12:00:00.000Z",
+        },
+      ],
+    });
   });
 
   it("stops notifying a removed subscriber", () => {
@@ -149,12 +154,18 @@ describe("ClipboardHistoryService", () => {
     const handler = vi.fn();
 
     service.add(createItem("1", "First"));
-    service.subscribe(handler);
 
+    const revisionBeforeClear = service.getSnapshot().revision;
+
+    service.subscribe(handler);
     service.clear();
 
     expect(service.getItems()).toEqual([]);
-    expect(handler).toHaveBeenCalledWith([]);
+
+    expect(handler).toHaveBeenCalledWith({
+      revision: revisionBeforeClear + 1,
+      items: [],
+    });
   });
 
   it("does not notify when clearing an empty history", () => {
@@ -214,5 +225,30 @@ describe("ClipboardHistoryService", () => {
     expect(() => {
       service.copyItem("missing");
     }).toThrow("Clipboard history item not found: missing");
+  });
+
+  it("increments the revision when adding an item", () => {
+    const { service } = createService();
+
+    service.initialize();
+
+    const initialRevision = service.getSnapshot().revision;
+
+    service.add(createItem("1", "First"));
+
+    expect(service.getSnapshot().revision).toBe(initialRevision + 1);
+  });
+
+  it("increments the revision when clearing history", () => {
+    const { service } = createService();
+
+    service.initialize();
+    service.add(createItem("1", "First"));
+
+    const revisionBeforeClear = service.getSnapshot().revision;
+
+    service.clear();
+
+    expect(service.getSnapshot().revision).toBe(revisionBeforeClear + 1);
   });
 });

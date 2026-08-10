@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ClipboardHistoryItem } from "../../../../shared/clipboard/clipboard-history-item";
+import type { ClipboardHistorySnapshot } from "../../../../shared/clipboard/clipboard-history-snapshot";
 
 type ClipboardHistoryState = {
   items: readonly ClipboardHistoryItem[];
@@ -14,22 +15,19 @@ export function useClipboardHistory(): ClipboardHistoryState {
   const [items, setItems] = useState<readonly ClipboardHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const currentRevisionRef = useRef(-1);
 
   useEffect(() => {
     let isActive = true;
 
-    const unsubscribe = window.clpbrdSync.clipboardHistory.onChanged((nextItems) => {
-      if (isActive) {
-        setItems(nextItems);
-      }
-    });
+    const unsubscribe = window.clpbrdSync.clipboardHistory.onChanged(applySnapshot);
 
     async function loadInitialHistory(): Promise<void> {
       try {
-        const initialItems = await window.clpbrdSync.clipboardHistory.getItems();
+        const snapshot = await window.clpbrdSync.clipboardHistory.getSnapshot();
 
         if (isActive) {
-          setItems(initialItems);
+          applySnapshot(snapshot);
         }
       } catch {
         if (isActive) {
@@ -66,6 +64,16 @@ export function useClipboardHistory(): ClipboardHistoryState {
     } catch {
       setErrorMessage("Could not clear clipboard history.");
     }
+  }, []);
+
+  const applySnapshot = useCallback((snapshot: ClipboardHistorySnapshot): void => {
+    if (snapshot.revision < currentRevisionRef.current) {
+      return;
+    }
+
+    currentRevisionRef.current = snapshot.revision;
+
+    setItems(snapshot.items);
   }, []);
 
   return {
