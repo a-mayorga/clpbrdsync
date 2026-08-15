@@ -18,6 +18,9 @@ import { ClipboardHistoryIpc } from "./features/clipboard/presentation/clipboard
 import { QuickPasteIpc } from "./features/quick-paste/quick-paste-ipc";
 import { QuickPasteWindowManager } from "./features/quick-paste/quick-paste-window-manager";
 import { registerRuntimeIpc, unregisterRuntimeIpc } from "./features/runtime/runtime-ipc";
+import { SettingsService } from "./features/settings/application/settings-service";
+import { SqliteSettingsRepository } from "./features/settings/infrastructure/sqlite-settings-repository";
+import { SettingsIpc } from "./features/settings/presentation/settings-ipc";
 import { DatabaseManager } from "./infrastructure/database/database-manager";
 import { ElectronClipboardReader } from "./infrastructure/electron-clipboard-reader";
 import { ElectronGlobalShortcutRegistrar } from "./infrastructure/electron-global-shortcut-registrar";
@@ -43,20 +46,16 @@ const windowManager = new WindowManager({
 const eventBus = new EventBus();
 const databaseManager = new DatabaseManager();
 const clipboardWriteTracker = new ClipboardWriteTracker();
-const clipboardMonitor = new ClipboardMonitor({
-  clipboardReader: new ElectronClipboardReader(),
-  writeTracker: clipboardWriteTracker,
-  eventBus,
-  pollingIntervalMs: 500,
-  onError: (error) => {
-    console.error("Clipboard monitor failed:", error);
-  },
-});
 
 let clipboardHistoryService: ClipboardHistoryService | null = null;
 let clipboardHistoryIpc: ClipboardHistoryIpc | null = null;
 let unsubscribeClipboardHistory: (() => void) | null = null;
 let applicationLifecycle: ApplicationLifecycle | null = null;
+let settingsService: SettingsService | null = null;
+let settingsIpc: SettingsIpc | null = null;
+let unsubscribeSettings: (() => void) | null = null;
+let clipboardMonitor: ClipboardMonitor | null = null;
+let globalShortcutManager: GlobalShortcutManager | null = null;
 
 const trayManager = new TrayManager({
   onToggleWindow: () => {
@@ -97,16 +96,6 @@ const quickPasteWindowManager = new QuickPasteWindowManager({
   },
 });
 
-const globalShortcutManager = new GlobalShortcutManager({
-  registrar: new ElectronGlobalShortcutRegistrar(),
-
-  onQuickPasteRequested: () => {
-    void quickPasteWindowManager.show().catch((error: unknown) => {
-      console.error("Could not show Quick Paste:", error);
-    });
-  },
-});
-
 const quickPasteIpc = new QuickPasteIpc({
   windowManager: quickPasteWindowManager,
 });
@@ -129,12 +118,54 @@ if (!hasSingleInstanceLock) {
 
   app.whenReady().then(async () => {
     quickPasteIpc.register();
-    globalShortcutManager.register();
     const database = databaseManager.initialize();
+    const settingsRepository = new SqliteSettingsRepository(database);
+
+    settingsService = new SettingsService({
+      repository: settingsRepository,
+    });
+
+    settingsService.initialize();
+
+    const settings = settingsService.getSettings();
+
+    settingsIpc = new SettingsIpc({
+      settingsService,
+      broadcast: (channel, ...args) => {
+        rendererRegistry.broadcast(channel, ...args);
+      },
+    });
+
+    settingsIpc.register();
+
+    clipboardMonitor = new ClipboardMonitor({
+      clipboardReader: new ElectronClipboardReader(),
+      eventBus,
+      writeTracker: clipboardWriteTracker,
+      pollingIntervalMs: settings.clipboardPollingIntervalMs,
+      onError: (error) => {
+        console.error("Clipboard monitor failed:", error);
+      },
+    });
+
+    clipboardMonitor.start();
+
+    globalShortcutManager = new GlobalShortcutManager({
+      registrar: new ElectronGlobalShortcutRegistrar(),
+      quickPasteShortcut: settings.quickPasteShortcut,
+      onQuickPasteRequested: () => {
+        void quickPasteWindowManager.show().catch((error: unknown) => {
+          console.error("Could not show Quick Paste:", error);
+        });
+      },
+    });
+
+    globalShortcutManager.register();
+
     const historyRepository = new SqliteClipboardHistoryRepository(database);
 
     clipboardHistoryService = new ClipboardHistoryService({
-      maxItems: 100,
+      maxItems: settings.historyLimit,
       repository: historyRepository,
       clipboardWriter: new ElectronClipboardWriter(),
       writeTracker: clipboardWriteTracker,
@@ -151,6 +182,10 @@ if (!hasSingleInstanceLock) {
 
     clipboardHistoryIpc.register();
 
+    unsubscribeSettings = settingsService.subscribe((nextSettings) => {
+      clipboardHistoryService?.setMaxItems(nextSettings.historyLimit);
+    });
+
     unsubscribeClipboardHistory = eventBus.on<ClipboardTextItem>(
       CLIPBOARD_EVENTS.textChanged,
       (item) => {
@@ -158,7 +193,6 @@ if (!hasSingleInstanceLock) {
       },
     );
 
-    clipboardMonitor.start();
     electronApp.setAppUserModelId("com.clpbrdsync.desktop");
 
     app.on("browser-window-created", (_, window) => {
@@ -191,13 +225,14 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
-  globalShortcutManager.unregister();
+  clipboardMonitor?.stop();
+  clipboardMonitor = null;
+
+  globalShortcutManager?.unregister();
+  globalShortcutManager = null;
+
   quickPasteIpc.unregister();
   quickPasteWindowManager.dispose();
-
-  clipboardMonitor.stop();
-
-  clipboardWriteTracker.clear();
 
   clipboardHistoryIpc?.unregister();
   clipboardHistoryIpc = null;
@@ -205,20 +240,33 @@ app.on("will-quit", () => {
   unsubscribeClipboardHistory?.();
   unsubscribeClipboardHistory = null;
 
+  unsubscribeSettings?.();
+  unsubscribeSettings = null;
+
+  settingsIpc?.unregister();
+  settingsIpc = null;
+
   clipboardHistoryService?.dispose();
   clipboardHistoryService = null;
 
+  settingsService?.dispose();
+  settingsService = null;
+
+  clipboardWriteTracker.clear();
+
+  rendererRegistry.clear();
   eventBus.removeAllListeners();
+
   unregisterRuntimeIpc();
 
   databaseManager.close();
 });
 
 powerMonitor.on("suspend", () => {
-  clipboardMonitor.stop();
+  clipboardMonitor?.stop();
 });
 
 powerMonitor.on("resume", () => {
-  clipboardMonitor.reset();
-  clipboardMonitor.start();
+  clipboardMonitor?.reset();
+  clipboardMonitor?.start();
 });

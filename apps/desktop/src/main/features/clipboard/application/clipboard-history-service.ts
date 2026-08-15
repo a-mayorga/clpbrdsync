@@ -15,12 +15,12 @@ type ClipboardHistoryServiceOptions = {
 type HistoryChangedHandler = (snapshot: ClipboardHistorySnapshot) => void;
 
 export class ClipboardHistoryService {
-  private readonly maxItems: number;
-  private readonly items: ClipboardTextItem[] = [];
   private readonly changeHandlers = new Set<HistoryChangedHandler>();
-  private readonly repository: ClipboardHistoryRepository;
   private readonly clipboardWriter: ClipboardWriter;
+  private readonly items: ClipboardTextItem[] = [];
+  private readonly repository: ClipboardHistoryRepository;
   private readonly writeTracker: ClipboardWriteTracker;
+  private maxItems: number;
   private revision = 0;
 
   constructor(options: ClipboardHistoryServiceOptions) {
@@ -121,5 +121,27 @@ export class ClipboardHistoryService {
     for (const handler of this.changeHandlers) {
       handler(snapshot);
     }
+  }
+
+  setMaxItems(maxItems: number): void {
+    if (!Number.isInteger(maxItems) || maxItems <= 0) {
+      throw new Error("Clipboard history maxItems must be a positive integer.");
+    }
+
+    if (maxItems === this.maxItems) {
+      return;
+    }
+
+    this.maxItems = maxItems;
+
+    if (this.items.length > maxItems) {
+      this.items.length = maxItems;
+    }
+
+    this.repository.prune(maxItems);
+
+    this.revision += 1;
+
+    this.notifyChange();
   }
 }

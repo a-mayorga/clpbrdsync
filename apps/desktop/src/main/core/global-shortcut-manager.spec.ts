@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { GlobalShortcutManager } from "./global-shortcut-manager";
 import type { GlobalShortcutRegistrar } from "./global-shortcut-registrar";
 
+const QUICK_PASTE_SHORTCUT = "CommandOrControl+Shift+V";
+
 class FakeGlobalShortcutRegistrar implements GlobalShortcutRegistrar {
   registeredAccelerator: string | null = null;
 
@@ -34,22 +36,23 @@ describe("GlobalShortcutManager", () => {
 
     const manager = new GlobalShortcutManager({
       registrar,
+      quickPasteShortcut: QUICK_PASTE_SHORTCUT,
       onQuickPasteRequested: () => {},
     });
 
     manager.register();
 
-    expect(registrar.registeredAccelerator).toBe("CommandOrControl+Shift+V");
+    expect(registrar.registeredAccelerator).toBe(QUICK_PASTE_SHORTCUT);
   });
 
   it("invokes the Quick Paste callback", () => {
     const registrar = new FakeGlobalShortcutRegistrar();
-
     const onQuickPasteRequested = vi.fn();
 
     const manager = new GlobalShortcutManager({
       registrar,
-      onQuickPasteRequested,
+      quickPasteShortcut: QUICK_PASTE_SHORTCUT,
+      onQuickPasteRequested
     });
 
     manager.register();
@@ -61,11 +64,11 @@ describe("GlobalShortcutManager", () => {
 
   it("does not register twice", () => {
     const registrar = new FakeGlobalShortcutRegistrar();
-
     const registerSpy = vi.spyOn(registrar, "register");
 
     const manager = new GlobalShortcutManager({
       registrar,
+      quickPasteShortcut: QUICK_PASTE_SHORTCUT,
       onQuickPasteRequested: () => {},
     });
 
@@ -82,6 +85,7 @@ describe("GlobalShortcutManager", () => {
 
     const manager = new GlobalShortcutManager({
       registrar,
+      quickPasteShortcut: QUICK_PASTE_SHORTCUT,
       onQuickPasteRequested: () => {},
     });
 
@@ -93,6 +97,6 @@ describe("GlobalShortcutManager", () => {
 
     manager.register();
 
-    expect(registrar.registeredAccelerator).toBe("CommandOrControl+Shift+V");
+    expect(registrar.registeredAccelerator).toBe(QUICK_PASTE_SHORTCUT);
   });
 });

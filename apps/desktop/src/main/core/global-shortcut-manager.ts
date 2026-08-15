@@ -2,10 +2,9 @@ import type { GlobalShortcutRegistrar } from "./global-shortcut-registrar";
 
 type GlobalShortcutManagerOptions = {
   registrar: GlobalShortcutRegistrar;
+  quickPasteShortcut: string;
   onQuickPasteRequested(): void;
 };
-
-const QUICK_PASTE_SHORTCUT = "CommandOrControl+Shift+V";
 
 export class GlobalShortcutManager {
   private isRegistered = false;
@@ -17,12 +16,12 @@ export class GlobalShortcutManager {
       return;
     }
 
-    const registered = this.options.registrar.register(QUICK_PASTE_SHORTCUT, () => {
+    const registered = this.options.registrar.register(this.options.quickPasteShortcut, () => {
       this.options.onQuickPasteRequested();
     });
 
     if (!registered) {
-      console.error(`Could not register global shortcut: ${QUICK_PASTE_SHORTCUT}`);
+      console.error(`Could not register global shortcut: ${this.options.quickPasteShortcut}`);
 
       return;
     }
@@ -35,7 +34,7 @@ export class GlobalShortcutManager {
       return;
     }
 
-    this.options.registrar.unregister(QUICK_PASTE_SHORTCUT);
+    this.options.registrar.unregister(this.options.quickPasteShortcut);
     this.isRegistered = false;
   }
 }

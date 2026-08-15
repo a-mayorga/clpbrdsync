@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+
 import type { DesktopRuntimeInfo } from "../../../../shared/desktop-api";
 import { ClipboardHistoryList } from "../clipboard-history/clipboard-history-list";
 import { useClipboardHistory } from "../clipboard-history/use-clipboard-history";
+import { SettingsPanel } from "../settings/settings-panel";
 
 export function Dashboard(): React.JSX.Element {
   const [runtimeInfo, setRuntimeInfo] = useState<DesktopRuntimeInfo | null>(null);
@@ -97,6 +99,8 @@ export function Dashboard(): React.JSX.Element {
           <ClipboardHistoryList items={items} onCopy={copyItem} />
         )}
       </section>
+
+      <SettingsPanel historyItemCount={items.length} />
     </main>
   );
 }

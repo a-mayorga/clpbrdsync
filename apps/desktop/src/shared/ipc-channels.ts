@@ -11,4 +11,9 @@ export const IPC_CHANNELS = {
   quickPaste: {
     hide: "quick-paste:hide",
   },
+  settings: {
+    get: "settings:get",
+    update: "settings:update",
+    changed: "settings:changed",
+  },
 } as const;

@@ -251,4 +251,32 @@ describe("ClipboardHistoryService", () => {
 
     expect(service.getSnapshot().revision).toBe(revisionBeforeClear + 1);
   });
+
+  it("reduces history when the maximum size changes", () => {
+    const { service } = createService(5);
+
+    service.initialize();
+
+    service.add(createItem("1", "One"));
+    service.add(createItem("2", "Two"));
+    service.add(createItem("3", "Three"));
+    service.add(createItem("4", "Four"));
+    service.add(createItem("5", "Five"));
+
+    service.setMaxItems(3);
+
+    expect(service.getItems().map((item) => item.id)).toEqual(["5", "4", "3"]);
+  });
+
+  it("increments revision when the maximum size changes", () => {
+    const { service } = createService(100);
+
+    service.initialize();
+
+    const revisionBefore = service.getSnapshot().revision;
+
+    service.setMaxItems(50);
+
+    expect(service.getSnapshot().revision).toBe(revisionBefore + 1);
+  });
 });

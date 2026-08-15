@@ -22,6 +22,17 @@ const migrations: readonly Migration[] = [
       `);
     },
   },
+  {
+    version: 2,
+    up(database) {
+      database.exec(`
+      CREATE TABLE settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      ) STRICT;
+    `);
+    },
+  },
 ];
 
 export function runMigrations(database: DatabaseSync): void {
